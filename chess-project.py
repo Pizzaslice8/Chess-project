@@ -1,13 +1,18 @@
 # building off of chess engine project from high school
 class piece:
-    def __init__(self, identity: str | None):
+    def __init__(self, identity=None):
+        assert identity is None or type(identity) == str, "only accepts strings"
+        assert identity in ["k", "q", "r", "b", "n", "p", "K", "Q", "R", "B", "N", "P", None], "bad identifier"
         self.identity = identity
-        self.color = 0
-        if identity == identity.casefold():
-            self.color = 1
+        self.color = int(identity == identity.casefold())
 
 class square:
-    def __init__(self, row: int | None, column: int | None, occupier: piece | None):
+    def __init__(self, row=None, column=None, occupier=None):
+        assert row is None or type(row) == int, "row must be an integer"
+        assert column is None or type(column) == int, "column must be an integer"
+        assert occupier is None or type(occupier) == piece, "occupier must be a piece"
+        assert row in (list(range(8)) + [None]), "0 <= row < 8"
+        assert column in (list(range(8)) + [None]), "0 <= column < 8"
         self.row = row
         self.column = column
         self.occupier = occupier
@@ -23,7 +28,24 @@ class position:
         self.clock = clock
         self.fullmove = fullmove
         self.descr = pos
+def move_vision(current: position, highlight: square) -> list:
+    id = highlight.occupier.identity
+    obstruction = square(None, None, None)
+    if id == id.casefold():
+        match id:
+            case _:
+                pass
+    else:
+        match id:
+            case _:
+                pass
+    
+    
+    squares = list()
+    return squares
+        
 
+        
 
     
 
