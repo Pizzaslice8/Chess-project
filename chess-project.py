@@ -17,15 +17,17 @@ openings = {
     "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2": (0.3, "c4") #1. d4 d5
     #more to come
 }
+center = ("d4", "e4", "d5", "e5")
+subcenter = ("c3", "c4", "c5", "c6", "d6", "e6", "f6", "f5", "f4", "f3", "e3", "d3")
 def interpret(square: str) -> tuple:
     return (ord(square[0]) - 96, int(square[1]))
 def compress(x: int, y: int) -> str:
     return str(chr(x + 96)) + str(y)
 def translate(square: str, x_move: int, y_move: int) -> str:
     return compress(interpret(square)[0] + x_move, interpret(square)[1] + y_move)
-def piece_color(piece: str) -> bool:
-    #White: True, black: False
-    return piece != piece.casefold()
+def color(piece: str) -> int:
+    #White: 1, black: -1
+    return 2 * int(piece != piece.casefold()) - 1
 class position:
     def __init__(self, p: dict, t: bool, c: tuple, e: str, h: int):
         """
@@ -62,25 +64,24 @@ class position:
             return None
         match piece.casefold():
             case "p":
-                #White: 2 * int(True) - 1 = 1, Black: 2 * int(False) - 1 = -1
                 if square[0] != "h":
-                    candidate = translate(square, 2 * int(piece_color(piece)) - 1, 1)
+                    candidate = translate(square, 1, color(piece))
                     if self.search(candidate) is None:
                         capture_output.append(candidate)
-                    elif piece_color(self.search(candidate)) != piece_color(piece):
+                    elif color(self.search(candidate)) != color(piece):
                         capture_output.append(candidate)
                 if square[0] != "a":
-                    candidate = translate(square, 2 * int(piece_color(piece)) - 1, -1)
+                    candidate = translate(square, -1, color(piece))
                     if self.search(candidate) is None:
                         capture_output.append(candidate)
-                    elif piece_color(self.search(candidate)) != piece_color(piece):
+                    elif color(self.search(candidate)) != color(piece):
                         capture_output.append(candidate)
-                in_front = translate(square, 2 * int(piece_color(piece)) - 1, 0)
+                in_front = translate(square, 0, color(piece))
                 if self.search(in_front) is None:
                     move_output.append(in_front)
-                in_front = translate(square, 4 * int(piece_color(piece)) - 2, 0)
+                in_front = translate(square, 0, 2 * color(piece))
                 if self.search(in_front) is None:
-                    if piece_color(piece):
+                    if color(piece) == 1:
                         #white
                         if square[1] == "2":
                             move_output.append(in_front)
@@ -88,8 +89,64 @@ class position:
                         #black
                         if square[1] == "7":
                             move_output.append(in_front)
-            case _:
-                #I'll figure out all the other pieces later
+            case "n":
+                change_x = (1, 1, 2, 2, -1, -1, -2, -2)
+                change_y = (2, -2, 1, -1, 2, -2, 1, 1)
+                for i in range(8):
+                    candidate = translate(square, change_x[i], change_y[i])
+                    if check_square(candidate):
+                        occupier = self.search(candidate)
+                        if color(piece) != color(occupier) or occupier is None:
+                            move_output.append(candidate)
+                            capture_output.append(candidate)
+            case "b":
+                change_x = (list(range(1, 8)) * 2) + (list(range(-1, -8, -1)) * 2)
+                change_y = (list(range(1, 8)) + list(range(-1, -8, -1))) * 2
+                stopped = False
+                for i in range(28):
+                    if stopped:
+                        if i in [8, 15, 22]:
+                            stopped = False
+                        else:
+                            continue
+                    candidate = translate(square, change_x[i], change_y[i])
+                    if check_square(candidate):
+                        occupier = self.search(candidate)
+                        if occupier is None:
+                            move_output.append(candidate)
+                            capture_output.append(candidate)
+                        else:
+                            if color(piece) != color(occupier):
+                                move_output.append(candidate)
+                                capture_output.append(candidate)
+                            else:
+                                capture_output.append(candidate)
+                            stopped = True
+            case "r":
+                # north, east, south, west
+                change_x = ([0] * 7) + list(range(1, 8)) + ([0] * 7) + list(range(-1, -8, -1))
+                change_y = list(range(1, 8)) + ([0] * 7) + list(range(-1, -8, -1)), ([0] * 7)
+                stopped = False
+                for i in range(28):
+                    if stopped:
+                        if i in [8, 15, 22]:
+                            stopped = False
+                        else:
+                            continue
+                    candidate = translate(square, change_x[i], change_y[i])
+                    if check_square(candidate):
+                        occupier = self.search(candidate)
+                        if occupier is None:
+                            move_output.append(candidate)
+                            capture_output.append(candidate)
+                        else:
+                            if color(piece) != color(occupier):
+                                move_output.append(candidate)
+                                capture_output.append(candidate)
+                            stopped = True
+            case "q":
+                pass
+            case "k":
                 pass
         return {
             "move": tuple(move_output),
@@ -112,12 +169,85 @@ class position:
                     if king_square in self.piece_vision(square):
                         return True
             return False
-    def legal(self) -> bool:
-        return True # for now
+    def legal(self, start: str, end: str) -> bool:
+        return True
     def count_material(self) -> int:
         white_material = len(self.pieces["P"]) + 3 * len(self.pieces["N"]) + 3 * len(self.pieces["B"]) + 5 * len(self.pieces["R"]) + 9 * len(self.pieces["Q"])
         black_material = len(self.pieces["p"]) + 3 * len(self.pieces["n"]) + 3 * len(self.pieces["b"]) + 5 * len(self.pieces["r"]) + 9 * len(self.pieces["q"])
         return white_material - black_material
+    def square_control(self) -> float:
+        total = 0.0
+        white_squares = list()
+        black_squares = list()
+        for x in range(1, 8):
+            for y in range(1, 8):
+                square = compress(x, y)
+                stuff = self.piece_vision(square)
+                if not stuff is None:
+                    if self.search(square) != self.search(square).casefold():
+                        white_squares.append(square)
+                    else:
+                        black_squares.append(square)
+        for item in white_squares:
+            if item in center:
+                total += 0.3
+            elif item in subcenter:
+                total += 0.2
+            else:
+                total += 0.1
+        for item in black_squares:
+            if item in center:
+                total -= 0.3
+            elif item in subcenter:
+                total -= 0.2
+            else:
+                total -= 0.1
+        return total
+    def space(self) -> float:
+        total = 0.0
+        for pawn in self.pieces["P"]:
+            if pawn[0] in "abgh":
+                total += 0.1 * int(pawn[1])
+            else:
+                total += 0.2 * int(pawn[0])
+        for pawn in self.pieces["p"]:
+            if pawn[0] in "abgh":
+                total -= 0.1 * (8 - int(pawn[1]))
+            else:
+                total -= 0.2 * (8 - int(pawn[1]))
+        return total
+    def king_safety(self) -> float:
+        white_king_position = self.pieces["K"][0]
+        black_king_position = self.pieces["k"][0]
+        endgame = False
+        total = 0.0
+        if len(self.pieces["q"]) == 0 and len(self.pieces["Q"] == 0):
+            #endgame OR queenless middlegame
+            endgame = len(self.pieces["r"]) < 2 and len(self.pieces["R"]) < 2
+        else:
+            #middlegame OR queen endgame
+            if len(self.pieces["r"]) > 0 or len(self.pieces["R"]) > 0:
+                endgame = False
+            if len(self.pieces["n"]) + len(self.pieces["N"]) + len(self.pieces["b"]) + len(self.pieces["B"]) > 2:
+                endgame = False
+        if endgame:
+            total += (0.2 * int(white_king_position in center) + 0.1 * int(white_king_position in subcenter))
+            total -= (0.2 * int(black_king_position in center) + 0.1 * int(black_king_position in subcenter))
+        else:
+            total -= (0.2 * int(white_king_position in center) + 0.1 * int(white_king_position in subcenter))
+            total += (0.2 * int(black_king_position in center) + 0.1 * int(black_king_position in subcenter))
+            #measuring how many pawns you have in front your king
+            umbrella_white = (translate(white_king_position, -1, 1), translate(white_king_position, 0, 1), translate(white_king_position, 1, 1))
+            umbrella_black = (translate(black_king_position, -1, -1), translate(black_king_position, 0, -1), translate(black_king_position, 1, -1))
+            for square in umbrella_white:
+                if not check_square(square): continue
+                if self.search(square) is None: continue
+                total += 0.3 * int(self.search(square) == "P")
+            for square in umbrella_black:
+                if not check_square(square): continue
+                if self.search(square) is None: continue
+                total += 0.3 * int(self.search(square) == "p")
+        return total
 def check_square(square: str) -> bool:
     if len(square) != 2:
         return False
@@ -206,6 +336,7 @@ def run():
     else:
         print("Running at depth:", depth)
     """
+    
 try:
     run()
 except Exception as e:
