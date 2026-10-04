@@ -1,20 +1,20 @@
 # building off of chess engine project from high school
 openings = {
     #0 halfmoves
-    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1": (0.2, "e4"), #starting position
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1": (0.2, "e2e4"), #starting position
     #1 halfmoves
-    "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1": (0.2, "e5"), #1. e4
-    "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1": (0.2, "Nf6"), #1. d4
-    "rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq - 0 1": (0.1, "e5"), #1. c4
-    "rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 1 1": (0.1, "Nf6"), #1. Nf3
+    "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1": (0.2, "e7e5"), #1. e4
+    "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1": (0.2, "g8f6"), #1. d4
+    "rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq - 0 1": (0.1, "e7e5"), #1. c4
+    "rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 1 1": (0.1, "g8f6"), #1. Nf3
     #2 halfmoves, 1. e4
-    "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2": (0.2, "Nf3"), #1. e4 e5
-    "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2": (0.3, "Nf3"), #1. e4 c5
-    "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2": (0.4, "d4"), #1. e4 e6
-    "rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2": (0.3, "d4"), #1. e4 c6
+    "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2": (0.2, "g1f3"), #1. e4 e5
+    "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2": (0.3, "g1f3"), #1. e4 c5
+    "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2": (0.4, "d2d4"), #1. e4 e6
+    "rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2": (0.3, "d2d4"), #1. e4 c6
     #2 halfmoves, 1. d4
-    "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2": (0.2, "c4"), #1. d4 Nf6
-    "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2": (0.3, "c4") #1. d4 d5
+    "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2": (0.2, "c2c4"), #1. d4 Nf6
+    "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2": (0.3, "c2c4") #1. d4 d5
     #more to come
 }
 center = ("d4", "e4", "d5", "e5")
@@ -56,121 +56,241 @@ class position:
             for squares in self.pieces[letter]:
                 if square in squares:
                     return letter
+    def occupied_squares(self) -> list:
+        output = list()
+        for stuff in self.pieces.values():
+            output.extend(stuff)
+        return output
+    def legal_basic(self, move: str) -> bool:
+        #does not account for if the king is in check
+        try:
+            assert len(move) == 4
+            start = move[:2]
+            end = move[2:]
+            assert check_square(self.search(start)) and check_square(self.search(end))
+            assert not self.search(start) is None
+            assert self.search(end) is None or color(self.search(start)) != color(self.search(end))
+            distance_x = abs(interpret(start)[0] - interpret(end)[0])
+            distance_y = abs(interpret(start)[1] - interpret(end)[1])
+            #movement
+            match self.search(start).casefold():
+                case "p":
+                    if self.search(end) is None or self.search(end) is self.ep_square:
+                        #capture
+                        assert distance_x in (1, -1)
+                        assert distance_y == color(self.search(start))
+                    else:
+                        #move
+                        assert distance_x == 0
+                        if color(self.search(start)) == 1:
+                            #white
+                            if interpret(start)[1] == 2:
+                                assert distance_y in (1, 2)
+                            else:
+                                assert distance_y == 1
+                        else:
+                            #black
+                            if interpret(start)[1] == 7:
+                                assert distance_y in (-1, -2)
+                            else:
+                                assert distance_y == -1
+                case "n":
+                    distance = (distance_x, distance_y)
+                    assert distance is (1, 2) or distance is (2, 1)
+                case "b":
+                    assert distance_x == distance_y
+                    between_x = list(range(interpret(start)[0], interpret(end)[0]))
+                    between_x.pop(0)
+                    between_y = list(range(interpret(start)[1], interpret(end)[1]))
+                    between_y.pop(0)
+                    between_full = [compress(i, j) for i, j in zip(between_x, between_y)]
+                    for s in between_full:
+                        assert self.search(s) is None
+                case "r":
+                    assert distance_x == 0 or distance_y == 0
+                    assert not (distance_x == 0 and distance_y == 0)
+                    if distance_y == 0:
+                        between_x = list(range(interpret(start)[0], interpret(end)[0]))
+                        between_x.pop(0)
+                        between_full = [compress(i, interpret(start)[1]) for i in between_x]
+                        for s in between_full:
+                            assert self.search(s) is None
+                    elif distance_x == 0:
+                        between_y = list(range(interpret(start)[1], interpret(end)[1]))
+                        between_y.pop(0)
+                        between_full = [compress(interpret(start)[0], j) for j in between_y]
+                        for s in between_full:
+                            assert self.search(s) is None
+                    else:
+                        return False
+                case "q":
+                    assert not (distance_x == 0 and distance_y == 0)
+                    if distance_x == 0:
+                        between_y = list(range(interpret(start)[1], interpret(end)[1]))
+                        between_y.pop(0)
+                        between_full = [compress(interpret(start)[0], j) for j in between_y]
+                        for s in between_full:
+                            assert self.search(s) is None
+                    elif distance_y == 0:
+                        between_x = list(range(interpret(start)[0], interpret(end)[0]))
+                        between_x.pop(0)
+                        between_full = [compress(i, interpret(start)[1]) for i in between_x]
+                        for s in between_full:
+                            assert self.search(s) is None
+                    else:
+                        assert distance_x == distance_y
+                        between_x = list(range(interpret(start)[0], interpret(end)[0]))
+                        between_x.pop(0)
+                        between_y = list(range(interpret(start)[1], interpret(end)[1]))
+                        between_y.pop(0)
+                        between_full = [compress(i, j) for i, j in zip(between_x, between_y)]
+                        for s in between_full:
+                            assert self.search(s) is None
+                case "k":
+                    distance = (distance_x, distance_y)
+                    if color(self.search(start)) == 1:
+                        #white king
+                        if end == "g1":
+                            assert self.white_castle_short
+                        elif end == "c1":
+                            assert self.white_castle_long
+                        else:
+                            assert distance is (0, 1) or distance is (1, 0) or distance is (1, 1)
+                    else:
+                        #black king
+                        if end == "g8":
+                            assert self.black_castle_short
+                        elif end == "c8":
+                            assert self.black_castle_long
+                        else:
+                            assert distance is (0, 1) or distance is (1, 0) or distance is (1, 1)
+                case _:
+                    return False
+        except AssertionError:
+            return False
+        return True
     def piece_vision(self, square: str) -> dict | None:
         move_output = list()
         capture_output = list()
-        piece = self.search(square)
-        if piece is None:
+        if self.search(square) is None:
             return None
-        match piece.casefold():
-            case "p":
-                if square[0] != "h":
-                    candidate = translate(square, 1, color(piece))
-                    if self.search(candidate) is None:
-                        capture_output.append(candidate)
-                    elif color(self.search(candidate)) != color(piece):
-                        capture_output.append(candidate)
-                if square[0] != "a":
-                    candidate = translate(square, -1, color(piece))
-                    if self.search(candidate) is None:
-                        capture_output.append(candidate)
-                    elif color(self.search(candidate)) != color(piece):
-                        capture_output.append(candidate)
-                in_front = translate(square, 0, color(piece))
-                if self.search(in_front) is None:
-                    move_output.append(in_front)
-                in_front = translate(square, 0, 2 * color(piece))
-                if self.search(in_front) is None:
-                    if color(piece) == 1:
-                        #white
-                        if square[1] == "2":
-                            move_output.append(in_front)
-                    else:
-                        #black
-                        if square[1] == "7":
-                            move_output.append(in_front)
-            case "n":
-                change_x = (1, 1, 2, 2, -1, -1, -2, -2)
-                change_y = (2, -2, 1, -1, 2, -2, 1, 1)
-                for i in range(8):
-                    candidate = translate(square, change_x[i], change_y[i])
-                    if check_square(candidate):
-                        occupier = self.search(candidate)
-                        if color(piece) != color(occupier) or occupier is None:
+        if self.search(square).casefold() == "p":
+            for i in range(1, 9):
+                for j in range(1, 9):
+                    candidate = square + compress(i, j)
+                    if self.legal_basic(candidate):
+                        if interpret(square)[0] == i:
                             move_output.append(candidate)
+                        else:
                             capture_output.append(candidate)
-            case "b":
-                change_x = (list(range(1, 8)) * 2) + (list(range(-1, -8, -1)) * 2)
-                change_y = (list(range(1, 8)) + list(range(-1, -8, -1))) * 2
-                stopped = False
-                for i in range(28):
-                    if stopped:
-                        if i in [8, 15, 22]:
-                            stopped = False
-                        else:
-                            continue
-                    candidate = translate(square, change_x[i], change_y[i])
-                    if check_square(candidate):
-                        occupier = self.search(candidate)
-                        if occupier is None:
-                            move_output.append(candidate)
-                            capture_output.append(candidate)
-                        else:
-                            if color(piece) != color(occupier):
-                                move_output.append(candidate)
-                                capture_output.append(candidate)
-                            else:
-                                capture_output.append(candidate)
-                            stopped = True
-            case "r":
-                # north, east, south, west
-                change_x = ([0] * 7) + list(range(1, 8)) + ([0] * 7) + list(range(-1, -8, -1))
-                change_y = list(range(1, 8)) + ([0] * 7) + list(range(-1, -8, -1)), ([0] * 7)
-                stopped = False
-                for i in range(28):
-                    if stopped:
-                        if i in [8, 15, 22]:
-                            stopped = False
-                        else:
-                            continue
-                    candidate = translate(square, change_x[i], change_y[i])
-                    if check_square(candidate):
-                        occupier = self.search(candidate)
-                        if occupier is None:
-                            move_output.append(candidate)
-                            capture_output.append(candidate)
-                        else:
-                            if color(piece) != color(occupier):
-                                move_output.append(candidate)
-                                capture_output.append(candidate)
-                            stopped = True
-            case "q":
-                pass
-            case "k":
-                pass
-        return {
-            "move": tuple(move_output),
-            "capture": tuple(capture_output)
-        }
-    def check(self) -> bool:
-        if self.to_move:
-            #white to move, check if black sees white king
-            king_square = self.pieces["K"][0]
-            for letter in "pnbqrk":
-                for square in self.pieces[letter]:
-                    if king_square in self.piece_vision(square):
-                        return True
-            return False
         else:
-            #black to move, check if white sees black king
-            king_square = self.pieces["k"][0]
-            for letter in "PNBQRK":
-                for square in self.pieces[letter]:
-                    if king_square in self.piece_vision(square):
-                        return True
+            for i in range(1, 9):
+                for j in range(1, 9):
+                    candidate = square + compress(i, j)
+                    if self.legal_basic(candidate):
+                        move_output.append(candidate)
+                        capture_output.append(candidate)
+        return {
+            "move": move_output,
+            "capture": capture_output
+        }
+    def make_move(self, move: str) -> None:
+        assert len(move) == 4
+        start = move[:2]
+        end = move[2:]
+        piece = self.search(start)
+        target = self.search(end)
+        if end is self.ep_square:
+            sq = translate(end, 0, -1 * color(start))
+            target = self.search(sq)
+            self.pieces[piece].remove(start)
+            self.pieces[piece].append(end)
+            self.pieces[target].remove(sq)
+        elif self.search(end) is None:
+            if piece == "K" and target in ("c1", "g1"):
+                self.pieces[piece].remove(start)
+                self.pieces[piece].append(end)
+                if target == "c1":
+                    self.pieces["R"].remove("a1")
+                    self.pieces["R"].append("d1")
+                else:
+                    self.pieces["R"].remove("h1")
+                    self.pieces["R"].append("f1")
+            elif piece == "k" and target in ("c8", "g8"):
+                self.pieces[piece].remove(start)
+                self.pieces[piece].append(end)
+                if target == "c8":
+                    self.pieces["r"].remove("a8")
+                    self.pieces["r"].append("d8")
+                else:
+                    self.pieces["r"].remove("h8")
+                    self.pieces["r"].append("f8")
+            else:
+                self.pieces[piece].remove(start)
+                self.pieces[piece].append(end)
+        else:
+            self.pieces[piece].remove(start)
+            self.pieces[piece].append(end)
+            self.pieces[target].remove(end)
+        self.ep_square = None
+        match piece:
+            case "r":
+                if start == "a8":
+                    self.black_castle_long = False
+                if start == "h8":
+                    self.black_castle_short = False
+            case "R":
+                if start == "a1":
+                    self.white_castle_long = False
+                if start == "h1":
+                    self.white_castle_short = False
+            case "k":
+                self.black_castle_long = False
+                self.black_castle_short = False
+            case "K": 
+                self.white_castle_long = False
+                self.white_castle_short = False
+            case "p":
+                if target[1] == 1:
+                    #too lazy to account for underpromotion
+                    self.pieces["p"].remove(target)
+                    self.pieces["q"].append(target)
+                if target[1] == 5:
+                    pawn_squares = (translate(target, 1, 0), translate(target, -1, 0))
+                    if self.search(pawn_squares[0]) == "P" or self.search(pawn_squares[1]) == "P":
+                        self.ep_square = translate(target, 0, 1)
+            case "P":
+                if target[1] == 8:
+                    self.pieces["P"].remove(target)
+                    self.pieces["Q"].append(target)
+                if target[1] == 4:
+                    pawn_squares = (translate(target, 1, 0), translate(target, -1, 0))
+                    if self.search(pawn_squares[0]) == "p" or self.search(pawn_squares[1]) == "p":
+                        self.ep_square = translate(target, 0, -1)
+    def king_safe(self, move: str) -> bool:
+        try:
+            assert self.legal_basic(move)
+            self.make_move(move)
+            for place in self.occupied_squares():
+                king = ""
+                piece = self.search(place)
+                if self.to_move:
+                    #white to move, check black pieces
+                    king = self.pieces["K"][0]
+                    if color(piece) == -1:
+                        assert not king in self.piece_vision(piece)["capture"]
+                else:
+                    #black to move, check white pieces
+                    king = self.pieces["k"][0]
+                    if color(piece) == 1:
+                        assert not king in self.piece_vision(piece)["capture"]
+        except AssertionError:
+            self.make_move(move[2:] + move[:2])
             return False
-    def legal(self, start: str, end: str) -> bool:
+        self.make_move(move[2:] + move[:2])
         return True
+    def legal(self, move: str) -> bool:
+        return self.legal_basic(move) and self.king_safe(move)
     def count_material(self) -> int:
         white_material = len(self.pieces["P"]) + 3 * len(self.pieces["N"]) + 3 * len(self.pieces["B"]) + 5 * len(self.pieces["R"]) + 9 * len(self.pieces["Q"])
         black_material = len(self.pieces["p"]) + 3 * len(self.pieces["n"]) + 3 * len(self.pieces["b"]) + 5 * len(self.pieces["r"]) + 9 * len(self.pieces["q"])
@@ -248,6 +368,9 @@ class position:
                 if self.search(square) is None: continue
                 total += 0.3 * int(self.search(square) == "p")
         return total
+    def count(self) -> float:
+        return self.count_material() + self.square_control() + self.space() + self.king_safety()
+
 def check_square(square: str) -> bool:
     if len(square) != 2:
         return False
